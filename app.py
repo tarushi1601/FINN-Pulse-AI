@@ -257,6 +257,195 @@ if section.startswith("◈"):
             fig = go.Figure(go.Bar(x=movers["Change"], y=movers["Ticker"], orientation="h", marker_color=["#b6f36a" if x >= 0 else "#ff7886" for x in movers["Change"]]))
             fig.update_layout(height=470, margin=dict(l=0,r=10,t=5,b=5), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#d8e4f0", xaxis_title="Daily change (%)", yaxis_title="", showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
+        
+        # ==============================================
+        # FINN PULSE — VISUAL MARKET ANALYTICS
+        # ==============================================
+
+        st.divider()
+        st.subheader("📈 Market Analytics & Trends")
+        st.caption(
+            "Interactive visual insights using latest available "
+            "Yahoo Finance end-of-day market data."
+        )
+
+        # 1. Stock price trend
+        st.markdown("### Historical Stock Price Trend")
+
+        selected_stock = st.selectbox(
+            "Select company",
+            list(PORTFOLIO.keys()),
+            format_func=lambda x: f"{PORTFOLIO[x]} ({x})",
+            key="trend_stock"
+        )
+
+        trend_period = st.selectbox(
+            "Time period",
+            ["1mo", "3mo", "6mo", "1y"],
+            index=1,
+            key="trend_period"
+        )
+
+        @st.cache_data(ttl=1800, show_spinner=False)
+        def get_trend_data(symbol, period):
+            return yf.Ticker(symbol + ".NS").history(
+                period=period,
+                interval="1d",
+                auto_adjust=True
+            )
+
+        try:
+            history = get_trend_data(
+                selected_stock, trend_period
+            )
+
+            if not history.empty:
+                fig = go.Figure()
+
+                fig.add_trace(go.Scatter(
+                    x=history.index,
+                    y=history["Close"],
+                    mode="lines",
+                    name="Closing price",
+                    line=dict(color="#b6f36a", width=3),
+                    fill="tozeroy",
+                    fillcolor="rgba(182,243,106,0.08)"
+                ))
+
+                fig.update_layout(
+                    template="plotly_dark",
+                    height=350,
+                    xaxis_title="Date",
+                    yaxis_title="Share price (₹)",
+                    hovermode="x unified",
+                    margin=dict(l=10, r=10, t=15, b=10),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)"
+                )
+
+                st.plotly_chart(
+                    fig, use_container_width=True
+                )
+
+                first = float(history["Close"].iloc[0])
+                last = float(history["Close"].iloc[-1])
+
+                if first != 0:
+                    period_return = (last / first - 1) * 100
+                    st.metric(
+                        "Return over selected period",
+                        f"{period_return:+.2f}%"
+                    )
+            else:
+                st.info("Historical prices unavailable.")
+
+        except Exception as e:
+            st.warning(f"Could not load trend: {e}")
+
+        # 2. Market gainers and losers
+        st.markdown("### Portfolio Performance Comparison")
+
+        performance = market.dropna(
+            subset=["Change"]
+        ).sort_values("Change")
+
+        colors = [
+            "#b6f36a" if value >= 0 else "#ff7886"
+            for value in performance["Change"]
+        ]
+
+        fig2 = go.Figure(go.Bar(
+            x=performance["Ticker"],
+            y=performance["Change"],
+            marker_color=colors,
+            text=[
+                f"{v:+.2f}%"
+                for v in performance["Change"]
+            ],
+            textposition="outside"
+        ))
+
+        fig2.update_layout(
+            template="plotly_dark",
+            height=420,
+            xaxis_title="NSE Ticker",
+            yaxis_title="Daily change (%)",
+            margin=dict(l=10, r=10, t=20, b=60),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)"
+        )
+
+        st.plotly_chart(fig2, use_container_width=True)
+
+        # 3. Volume anomaly comparison
+        st.markdown("### Trading Volume Anomalies")
+
+        volume_data = market.dropna(
+            subset=["VolumeRatio"]
+        ).sort_values("VolumeRatio", ascending=False)
+
+        fig3 = go.Figure(go.Bar(
+            x=volume_data["Ticker"],
+            y=volume_data["VolumeRatio"],
+            marker_color="#efa17b",
+            name="Volume ratio"
+        ))
+
+        fig3.add_hline(
+            y=volume_threshold,
+            line_dash="dash",
+            line_color="#ff7886",
+            annotation_text="Alert threshold"
+        )
+
+        fig3.update_layout(
+            template="plotly_dark",
+            height=350,
+            xaxis_title="NSE Ticker",
+            yaxis_title="Volume / 20-day average",
+            margin=dict(l=10, r=10, t=20, b=60),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)"
+        )
+
+        st.plotly_chart(fig3, use_container_width=True)
+
+        # 4. Market breadth
+        st.markdown("### Portfolio Market Breadth")
+
+        advancing = int((market["Change"] > 0).sum())
+        declining = int((market["Change"] < 0).sum())
+        unchanged = int((market["Change"] == 0).sum())
+
+        fig4 = go.Figure(go.Pie(
+            labels=["Advancing", "Declining", "Unchanged"],
+            values=[advancing, declining, unchanged],
+            hole=0.65,
+            marker=dict(
+                colors=["#b6f36a", "#ff7886", "#99abc0"]
+            ),
+            textinfo="label+percent"
+        ))
+
+        fig4.update_layout(
+            template="plotly_dark",
+            height=330,
+            showlegend=True,
+            margin=dict(l=10, r=10, t=10, b=10),
+            paper_bgcolor="rgba(0,0,0,0)"
+        )
+
+        st.plotly_chart(fig4, use_container_width=True)
+
+        st.caption(
+            "Prices are latest available EOD data, "
+            "not real-time exchange ticks. "
+            "Volume ratios are based on available "
+            "historical trading sessions."
+        )
+
+        # END VISUAL MARKET ANALYTICS
+
         st.subheader("Threshold alerts")
         if alerts.empty: st.success("No stocks crossed your current alert thresholds on their latest available EOD session.")
         for _, r in alerts.sort_values("Change", key=lambda s:s.abs(), ascending=False).iterrows():
