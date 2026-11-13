@@ -14,7 +14,7 @@ import yfinance as yf
 import fitz
 from financial_analysis import retrieve, financial_candidates, percent_change
 from intelligence import answer as grounded_answer, bull_bear, parse_statements
-from filing_sources import fetch_nse_announcements
+from filing_sources import _nse_announcements
 
 st.set_page_config(page_title="FINN Pulse · Investment Intelligence", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
 ROOT = Path(__file__).parent
@@ -475,6 +475,16 @@ elif section.startswith("◉"):
     priority_filter = st.multiselect("Importance", ["CRITICAL", "HIGH", "MEDIUM", "LOW"], default=["CRITICAL", "HIGH", "MEDIUM", "LOW"])
     hide_routine = st.toggle("Collapse routine paperwork", value=True)
     df = demo_filings() if demo else get_filings()
+
+    if not demo and df.empty:
+        live_df = st.session_state.get("live_filings")
+    
+        if live_df is not None and not live_df.empty:
+            st.info(
+                "No imported portfolio filings found. "
+                "Showing the fetched NSE RSS announcements separately."
+            )
+            st.dataframe(live_df, use_container_width=True)
     if demo: st.warning("DEMO MODE: These events are fictional illustrations, NOT actual NSE/BSE announcements. Switch off to view imported records.")
     else: st.info("Imported filings are user-supplied and should be checked against their original exchange URLs.")
     if not df.empty:
@@ -496,6 +506,14 @@ if st.button("Fetch Live NSE Announcements"):
         with st.spinner("Fetching announcements..."):
             df = fetch_live_announcements()
             st.session_state["live_filings"] = df
+
+            if df.empty:
+                st.warning("NSE RSS returned no announcements.")
+            else:
+                st.success(f"Fetched {len(df)} RSS announcements.")
+            
+                # Show the raw RSS announcements immediately.
+                st.dataframe(df, use_container_width=True)
 
         st.success(f"Fetched {len(df)} announcements")
 
