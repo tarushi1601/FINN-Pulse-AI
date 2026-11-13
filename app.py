@@ -14,7 +14,7 @@ import yfinance as yf
 import fitz
 from financial_analysis import retrieve, financial_candidates, percent_change
 from intelligence import answer as grounded_answer, bull_bear, parse_statements
-from filing_sources import _nse_announcements
+from filing_sources import fetch_nse_announcements
 
 st.set_page_config(page_title="FINN Pulse · Investment Intelligence", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
 ROOT = Path(__file__).parent
