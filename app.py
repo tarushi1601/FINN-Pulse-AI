@@ -465,7 +465,6 @@ elif section.startswith("◉"):
                 latest = fetch_nse_announcements()
             n = import_filings(latest) if not latest.empty else 0
             st.success(f"Received {len(latest)} NSE records; "f"imported {n} new announcements.")
-            st.write("Companies fetched:", latest["ticker"].unique().tolist())
         except Exception as exc:
             st.error(f"NSE retrieval unavailable: {exc}. The exchange may block automated requests; import verified filings via CSV instead.")
     c1,c2,c3 = st.columns([1,1,1])
@@ -528,32 +527,42 @@ elif section.startswith("◉"):
     display_filings(df, demo)
     with st.expander("How prioritization works"):
         st.write("Deterministic weights: results, M&A, management changes and litigation are critical; fund raises, ratings and capex are high; routine compliance is low. This is a heuristic for triage, not an investment recommendation.")
+    # Live NSE RSS — one compact table, only inside Signal Feed.
+    st.divider()
     st.subheader("Live NSE Announcements")
+    st.caption("Latest entries from the NSE RSS feed. Titles may be company names rather than filing descriptions.")
 
-if st.button("Fetch Live NSE Announcements"):
-    try:
-        with st.spinner("Fetching announcements..."):
-            df = fetch_live_announcements()
-            st.session_state["live_filings"] = df
-
-            if df.empty:
-                st.warning("NSE RSS returned no announcements.")
+    if st.button("Fetch Live NSE Announcements", type="primary"):
+        try:
+            with st.spinner("Fetching NSE RSS entries..."):
+                live_df = fetch_live_announcements()
+            if live_df.empty:
+                st.session_state.pop("live_filings", None)
+                st.warning("The NSE RSS feed returned no entries.")
             else:
-                st.success(f"Fetched {len(df)} RSS announcements.")
-            
-                # Show the raw RSS announcements immediately.
-                st.dataframe(df, use_container_width=True)
+                st.session_state["live_filings"] = live_df
+                st.success(f"Fetched {len(live_df)} NSE RSS entries.")
+        except Exception as exc:
+            st.error(f"Unable to fetch NSE RSS entries: {exc}")
 
-        st.success(f"Fetched {len(df)} announcements")
+    if "live_filings" in st.session_state:
+        live_df = st.session_state["live_filings"]
+        st.caption(f"Showing the first {min(15, len(live_df))} of {len(live_df)} fetched entries")
+        columns = [c for c in ["title", "category", "priority", "url"] if c in live_df.columns]
+        display_df = live_df[columns].head(15).copy()
+        display_df = display_df.rename(columns={
+            "title": "Company / Announcement",
+            "category": "Category",
+            "priority": "Priority",
+            "url": "NSE Source",
+        })
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={"NSE Source": st.column_config.LinkColumn("NSE Source")},
+        )
 
-    except Exception as e:
-        st.error(f"Error fetching announcements: {e}")
-
-if "live_filings" in st.session_state:
-    st.dataframe(
-        st.session_state["live_filings"],
-        use_container_width=True
-    )
 elif section.startswith("⌁"):
     header("PRIMARY-SOURCE RESEARCH", "Research Lab", "Ask better questions. Get evidence, not hallucinations.")
     ticker = st.text_input("NSE ticker", value="INFY", help="Any NSE symbol; e.g. RELIANCE, TCS, INFY").upper().strip().replace(".NS", "")
