@@ -463,9 +463,8 @@ elif section.startswith("◉"):
         try:
             with st.spinner("Requesting public exchange feed…"):
                 latest = fetch_nse_announcements()
-            relevant = latest[latest['ticker'].isin(PORTFOLIO)]
-            n = import_filings(relevant) if not relevant.empty else 0
-            st.success(f"Received {len(latest)} exchange records; imported {n} new portfolio announcements. Turn off demo mode to view them.")
+            n = import_filings(latest) if not latest.empty else 0
+            st.success(f"Received {len(latest)} NSE records; "f"imported {n} new announcements.")
         except Exception as exc:
             st.error(f"NSE retrieval unavailable: {exc}. The exchange may block automated requests; import verified filings via CSV instead.")
     c1,c2,c3 = st.columns([1,1,1])
@@ -490,7 +489,10 @@ elif section.startswith("◉"):
     if not df.empty:
         dates = pd.to_datetime(df["published_at"], utc=True, errors="coerce")
         df = df[dates >= pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=hours)]
-        df = df[df["ticker"].isin(PORTFOLIO)]
+        portfolio_only = st.toggle("Show only my portfolio companies",value=True,help="Turn off to explore announcements from all fetched NSE companies.")
+
+        if portfolio_only:
+            df = df[df["ticker"].isin(PORTFOLIO)]
         if category != "All": df = df[df["category"] == category]
         df = df[df['category'].map(priority).isin(priority_filter)]
         if hide_routine: df = df[df['category'] != 'unclassified']
