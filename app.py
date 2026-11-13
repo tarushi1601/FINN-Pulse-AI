@@ -465,6 +465,7 @@ elif section.startswith("◉"):
                 latest = fetch_nse_announcements()
             n = import_filings(latest) if not latest.empty else 0
             st.success(f"Received {len(latest)} NSE records; "f"imported {n} new announcements.")
+            st.write("Companies fetched:", latest["ticker"].unique().tolist())
         except Exception as exc:
             st.error(f"NSE retrieval unavailable: {exc}. The exchange may block automated requests; import verified filings via CSV instead.")
     c1,c2,c3 = st.columns([1,1,1])
@@ -486,17 +487,46 @@ elif section.startswith("◉"):
             st.dataframe(live_df, use_container_width=True)
     if demo: st.warning("DEMO MODE: These events are fictional illustrations, NOT actual NSE/BSE announcements. Switch off to view imported records.")
     else: st.info("Imported filings are user-supplied and should be checked against their original exchange URLs.")
+    portfolio_only = st.toggle(
+        "Show only my portfolio companies",
+        value=False,
+        key="portfolio_only_filter"
+    )
+
     if not df.empty:
-        dates = pd.to_datetime(df["published_at"], utc=True, errors="coerce")
-        df = df[dates >= pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=hours)]
-        portfolio_only = st.toggle("Show only my portfolio companies",value=True,help="Turn off to explore announcements from all fetched NSE companies.")
+        dates = pd.to_datetime(
+            df["published_at"],
+            utc=True,
+            errors="coerce"
+        )
+
+        df = df[
+            dates >= pd.Timestamp.now(tz="UTC")
+            - pd.Timedelta(hours=hours)
+        ]
 
         if portfolio_only:
             df = df[df["ticker"].isin(PORTFOLIO)]
-        if category != "All": df = df[df["category"] == category]
-        df = df[df['category'].map(priority).isin(priority_filter)]
-        if hide_routine: df = df[df['category'] != 'unclassified']
-        df = df.assign(_priority=df["category"].map(WEIGHTS).fillna(0)).sort_values(["_priority", "published_at"], ascending=[False,False])
+
+        if category != "All":
+            df = df[df["category"] == category]
+
+        df = df[
+            df["category"].map(priority).isin(priority_filter)
+        ]
+
+        if hide_routine:
+            df = df[df["category"] != "unclassified"]
+
+        df = df.assign(
+            _priority=df["category"].map(WEIGHTS).fillna(0)
+        ).sort_values(
+            ["_priority", "published_at"],
+            ascending=[False, False]
+        )
+
+
+
     st.caption(f"{len(df)} announcements · sorted by materiality score")
     display_filings(df, demo)
     with st.expander("How prioritization works"):
