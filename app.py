@@ -476,12 +476,12 @@ elif section.startswith("◉"):
     hide_routine = st.toggle("Collapse routine paperwork", value=True)
     df = demo_filings() if demo else get_filings()
     if not demo:
-    st.caption(f"Database contains {len(df)} imported NSE records")
+        st.caption(f"Database contains {len(df)} imported NSE records")
 
-    if not df.empty:
-        st.caption(
-            f"Latest stored filing: {df['published_at'].max()}"
-        )
+        if not df.empty:
+            st.caption(
+                f"Latest stored filing: {df['published_at'].max()}"
+            )
     if demo: st.warning("DEMO MODE: These events are fictional illustrations, NOT actual NSE/BSE announcements. Switch off to view imported records.")
     else: st.info("Imported filings are user-supplied and should be checked against their original exchange URLs.")
     portfolio_only = st.toggle(
